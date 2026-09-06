@@ -9,6 +9,44 @@ function parseGitHubUrl(url: string) {
   return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
+// Helper to retry generation if Google's servers hit a 503 capacity spike
+async function generateWithRetry(prompt: string, retries = 2, delayMs = 1500): Promise<any> {
+  const schema = {
+    type: Type.OBJECT,
+    properties: {
+      roast: { type: Type.STRING, description: "A 2-3 paragraph punchy roast of the code and architecture." },
+      roastScore: { type: Type.INTEGER, description: "Rating from 0 (pristine) to 100 (disaster)" },
+      codeSmells: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING },
+        description: "3-4 humorous yet technically accurate architectural critiques.",
+      },
+      verdict: { type: Type.STRING, description: "One-sentence executive hiring verdict." },
+    },
+    required: ["roast", "roastScore", "codeSmells", "verdict"],
+  };
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await ai.models.generateContent({
+        model: "gemini-3.6-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      });
+    } catch (err: any) {
+      const is503 = err?.message?.includes("503") || err?.status === 503;
+      if (is503 && attempt < retries) {
+        await new Promise((res) => setTimeout(res, delayMs * (attempt + 1)));
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { repoUrl } = await req.json();
@@ -55,7 +93,7 @@ export async function POST(req: NextRequest) {
       Analyze this repository:
       - Repository Name: ${repoData.full_name}
       - Description: ${repoData.description || "None"}
-      - Stars: ${repoData.stargazers_count} \vert{} Forks:${repoData.forks_count}
+      - Stars: ${repoData.stargazers_count} | Forks: ${repoData.forks_count}
       - Primary Language: ${repoData.language || "Unknown"}
       - License: ${repoData.license?.name || "None"}
       - File Tree Sample:
@@ -64,31 +102,16 @@ export async function POST(req: NextRequest) {
       ${readmeText}
     `;
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.6-flash",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            roast: { type: Type.STRING, description: "A 2-3 paragraph punchy roast of the code and architecture." },
-            roastScore: { type: Type.INTEGER, description: "Rating from 0 (pristine) to 100 (disaster)" },
-            codeSmells: {
-              type: Type.ARRAY,
-              items: { type: Type.STRING },
-              description: "3-4 humorous yet technically accurate architectural critiques.",
-            },
-            verdict: { type: Type.STRING, description: "One-sentence executive hiring verdict." },
-          },
-          required: ["roast", "roastScore", "codeSmells", "verdict"],
-        },
-      },
-    });
-
+    const response = await generateWithRetry(prompt);
     const result = JSON.parse(response.text || "{}");
     return NextResponse.json({ ...result, repoName: repoData.full_name });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || "Failed to roast repository" }, { status: 500 });
+    if (err?.message?.includes("503") || err?.status === 503) {
+      return NextResponse.json(
+        { error: "Google AI is experiencing a brief traffic spike. Please retry in 5 seconds." },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json({ error: err.message || "Failed to inspect repository" }, { status: 500 });
   }
 }
