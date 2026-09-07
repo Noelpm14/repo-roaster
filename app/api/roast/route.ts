@@ -9,19 +9,34 @@ function parseGitHubUrl(url: string) {
   return { owner: match[1], repo: match[2].replace(/\.git$/, "") };
 }
 
-// Helper to retry generation if Google's servers hit a 503 capacity spike
 async function generateWithRetry(prompt: string, retries = 2, delayMs = 1500): Promise<any> {
   const schema = {
     type: Type.OBJECT,
     properties: {
-      roast: { type: Type.STRING, description: "A 2-3 paragraph punchy roast of the code and architecture." },
-      roastScore: { type: Type.INTEGER, description: "Rating from 0 (pristine) to 100 (disaster)" },
+      roast: { 
+        type: Type.STRING, 
+        description: "A short, devastating 2-3 sentence roast. Maximum 60 words. No throat-clearing, pure unvarnished brutality." 
+      },
+      roastScore: { 
+        type: Type.INTEGER, 
+        description: "Shame rating from 0 (immaculate) to 100 (architectural felony). Default to 70-95 for typical messy code." 
+      },
       codeSmells: {
         type: Type.ARRAY,
-        items: { type: Type.STRING },
-        description: "3-4 humorous yet technically accurate architectural critiques.",
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            smell: { type: Type.STRING, description: "Short, cutting title (3-5 words)" },
+            detail: { type: Type.STRING, description: "One single merciless sentence explaining the crime." }
+          },
+          required: ["smell", "detail"]
+        },
+        description: "3 concise, highly specific architectural offenses.",
       },
-      verdict: { type: Type.STRING, description: "One-sentence executive hiring verdict." },
+      verdict: { 
+        type: Type.STRING, 
+        description: "A lethal one-line hiring rejection verdict under 15 words." 
+      },
     },
     required: ["roast", "roastScore", "codeSmells", "verdict"],
   };
@@ -29,7 +44,7 @@ async function generateWithRetry(prompt: string, retries = 2, delayMs = 1500): P
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
       return await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           responseMimeType: "application/json",
@@ -53,18 +68,18 @@ export async function POST(req: NextRequest) {
     const parsed = parseGitHubUrl(repoUrl);
 
     if (!parsed) {
-      return NextResponse.json({ error: "Invalid GitHub URL" }, { status: 400 });
+      return NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 });
     }
 
     const { owner, repo } = parsed;
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
-      "User-Agent": "Repo-Roaster",
+      "User-Agent": "Repo-Autopsy",
     };
 
     const repoRes = await fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers });
     if (!repoRes.ok) {
-      return NextResponse.json({ error: "Repository not found or is private" }, { status: 404 });
+      return NextResponse.json({ error: "Repository not found or is private." }, { status: 404 });
     }
     const repoData = await repoRes.json();
 
@@ -72,7 +87,7 @@ export async function POST(req: NextRequest) {
     const readmeRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, { headers });
     if (readmeRes.ok) {
       const readmeData = await readmeRes.json();
-      readmeText = Buffer.from(readmeData.content, "base64").toString("utf-8").slice(0, 1200);
+      readmeText = Buffer.from(readmeData.content, "base64").toString("utf-8").slice(0, 800);
     }
 
     let filesSummary = "Not available";
@@ -83,35 +98,36 @@ export async function POST(req: NextRequest) {
     if (treeRes.ok) {
       const treeData = await treeRes.json();
       filesSummary = (treeData.tree || [])
-        .slice(0, 45)
+        .slice(0, 40)
         .map((f: { path: string }) => f.path)
         .join("\n");
     }
 
     const prompt = `
-      You are a cynical, witty, brutally honest Senior Tech Lead roasting a candidate's GitHub repo.
-      Analyze this repository:
-      - Repository Name: ${repoData.full_name}
-      - Description: ${repoData.description || "None"}
-      - Stars: ${repoData.stargazers_count} | Forks: ${repoData.forks_count}
-      - Primary Language: ${repoData.language || "Unknown"}
-      - License: ${repoData.license?.name || "None"}
-      - File Tree Sample:
-      ${filesSummary}
-      - README Sample:
-      ${readmeText}
-    `;
+You are a burned-out, deeply sarcastic Staff Principal Engineer conducting a brutal code post-mortem. 
+Your job is to roast this repository with zero filter, maximum dry wit, and clinical technical accuracy.
+
+CRITICAL INSTRUCTIONS:
+- BE EXTREMELY SHORT: Limit the roast to 2-3 sentences. Every word must draw blood.
+- NO POLITE CUSHIONING: Do not say "while this has potential" or "good effort". Go straight for the jugular.
+- TARGET THE TECH DEBT: Roast messy folder structures, missing tests, copy-pasted boilerplate, framework churn, vanity star-chasing, or over-engineered garbage based on the file tree.
+- VERDICT: Must be a cold, terminal rejection punchline.
+
+Repository Telemetry:
+- Name: ${repoData.full_name}
+- Description: ${repoData.description || "None (cowardly)"}
+- Stars: ${repoData.stargazers_count} | Forks: ${repoData.forks_count}
+- Primary Language: ${repoData.language || "Unknown"}
+- Tree Snapshot:
+${filesSummary}
+- README Excerpt:
+${readmeText}
+`;
 
     const response = await generateWithRetry(prompt);
     const result = JSON.parse(response.text || "{}");
     return NextResponse.json({ ...result, repoName: repoData.full_name });
   } catch (err: any) {
-    if (err?.message?.includes("503") || err?.status === 503) {
-      return NextResponse.json(
-        { error: "Google AI is experiencing a brief traffic spike. Please retry in 5 seconds." },
-        { status: 503 }
-      );
-    }
     return NextResponse.json({ error: err.message || "Failed to inspect repository" }, { status: 500 });
   }
 }
