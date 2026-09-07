@@ -16,6 +16,7 @@ interface AuditResult {
 }
 
 type CharacterMood = "idle" | "scanning" | "disappointed" | "shocked" | "talking";
+type LegalTab = "none" | "terms" | "privacy";
 
 export default function Home() {
   const [repoUrl, setRepoUrl] = useState("");
@@ -23,24 +24,32 @@ export default function Home() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Animated bubble progression state
+  // Progressive bubble display
   const [revealedBubbles, setRevealedBubbles] = useState<number>(0);
   const [mood, setMood] = useState<CharacterMood>("idle");
   const dialogueEndRef = useRef<HTMLDivElement>(null);
 
-  const referenceTargets = [
-    "facebook/react",
-    "torvalds/linux",
-    "vercel/next.js",
-  ];
+  // Legal modal and Cookie banner state
+  const [activeLegalModal, setActiveLegalModal] = useState<LegalTab>("none");
+  const [cookieConsent, setCookieConsent] = useState(true);
 
-  // Progressive bubble reveal effect
+  useEffect(() => {
+    // Check if user has acknowledged the cookie banner before
+    const hasConsented = localStorage.getItem("autopsy_consent_granted");
+    if (!hasConsented) setCookieConsent(false);
+  }, []);
+
+  const handleConsent = () => {
+    localStorage.setItem("autopsy_consent_granted", "true");
+    setCookieConsent(true);
+  };
+
   useEffect(() => {
     if (!result) return;
     setRevealedBubbles(0);
     setMood(result.roastScore > 70 ? "shocked" : "talking");
 
-    const delays = [300, 1400, 2600, 3800];
+    const delays = [200, 1000, 1800, 2600];
     const timers = delays.map((delay, idx) =>
       setTimeout(() => {
         setRevealedBubbles(idx + 1);
@@ -82,10 +91,10 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-[#161b22] text-[#f0f6fc] antialiased flex flex-col justify-between p-4 sm:p-8 selection:bg-[#e3b341] selection:text-[#161b22]">
+    <div className="min-h-screen bg-[#161b22] text-[#f0f6fc] antialiased flex flex-col justify-between p-4 sm:p-8 selection:bg-[#e3b341] selection:text-[#161b22] relative">
       <main className="max-w-3xl w-full mx-auto space-y-6 pt-4">
 
-        {/* Top Header */}
+        {/* Top Masthead */}
         <header className="border-b border-[#30363d] pb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341] inline-block animate-pulse" />
@@ -94,11 +103,11 @@ export default function Home() {
             </h1>
           </div>
           <span className="text-[11px] font-mono text-[#8b949e]">
-            v2.1 &bull; autonomous auditor
+            v2.2 &bull; safe &amp; rate-guarded
           </span>
         </header>
 
-        {/* Input Bar */}
+        {/* Search / Target Input Bar */}
         <section className="space-y-3">
           <form
             onSubmit={(e) => {
@@ -124,14 +133,14 @@ export default function Home() {
               disabled={loading || !repoUrl.trim()}
               className="px-6 py-3 bg-[#30363d] hover:bg-[#e3b341] hover:text-[#161b22] text-[#f0f6fc] font-mono text-xs font-semibold tracking-wide transition-colors disabled:opacity-40 disabled:hover:bg-[#30363d] disabled:hover:text-[#f0f6fc] cursor-pointer"
             >
-              {loading ? "EXAMINER DISPATCHED..." : "SUBMIT FOR AUTOPSY"}
+              {loading ? "EXAMINER RUNNING..." : "SUBMIT FOR AUTOPSY"}
             </button>
           </form>
 
           {/* Preset Buttons */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#8b949e]">
-            <span>Feed the examiner:</span>
-            {referenceTargets.map((slug) => (
+            <span>Quick targets:</span>
+            {["facebook/react", "torvalds/linux", "vercel/next.js"].map((slug) => (
               <button
                 key={slug}
                 type="button"
@@ -150,107 +159,87 @@ export default function Home() {
         {/* Error readout */}
         {error && (
           <div className="border border-[#e3b341]/40 bg-[#0d1117] p-4 text-xs font-mono space-y-1">
-            <span className="text-[#e3b341] font-semibold">Coroner report aborted:</span>
+            <span className="text-[#e3b341] font-semibold">Coroner Alert:</span>
             <div className="text-[#8b949e]">{error}</div>
           </div>
         )}
 
         {/* The Animated Character & Dialogue Stage */}
         <section className="border border-[#30363d] bg-[#0d1117] p-4 sm:p-6 space-y-6">
-          
-          {/* Character Stage Row */}
           <div className="flex items-center gap-4 border-b border-[#30363d] pb-4">
             <CoronerAvatar mood={mood} />
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-[#f0f6fc]">
-                  Unit 404 &quot;Coroner&quot;
-                </span>
+                <span className="font-mono text-sm font-bold text-[#f0f6fc]">Unit 404 &quot;Coroner&quot;</span>
                 <span className="text-[10px] font-mono px-1.5 py-0.5 border border-[#30363d] text-[#8b949e] uppercase">
                   {mood}
                 </span>
               </div>
               <p className="text-xs font-mono text-[#8b949e]">
                 {loading
-                  ? "Paging git trees... preparing caustic critique."
+                  ? "Paging git trees & inspecting manifest debt..."
                   : result
                   ? `Inspection complete for ${result.repoName}.`
-                  : "Awaiting candidate repository."}
+                  : "Awaiting public repository target."}
               </p>
             </div>
           </div>
 
-          {/* Dialogue Bubbles Feed */}
+          {/* Dialogue Bubbles */}
           <div className="space-y-4 font-mono text-xs">
-            
-            {/* Initial Idle Greeting */}
             {!loading && !result && (
               <DialogueBubble sender="Unit 404">
                 <p className="text-[#8b949e]">
-                  Hand over a GitHub repository URL. I will inspect the commit logs, file tree sprawl, and technical choices — then explain precisely where things went wrong.
+                  Enter any public GitHub repo. I will read its tree structure and deliver a concise, brutal architectural autopsy.
                 </p>
               </DialogueBubble>
             )}
 
-            {/* Active Scanning Animation */}
             {loading && (
               <DialogueBubble sender="Unit 404">
                 <div className="flex items-center gap-2 text-[#e3b341]">
                   <span className="w-2 h-2 rounded-full bg-[#e3b341] animate-ping" />
-                  <span>Cracking open Git tree structure and inspecting manifest debt...</span>
+                  <span>Probing repository topology...</span>
                 </div>
               </DialogueBubble>
             )}
 
-            {/* Bubble 1: Initial Impression & Shame Score */}
             {result && revealedBubbles >= 1 && (
               <DialogueBubble
                 sender="Unit 404"
-                badge={`DEFECT SCORE: ${result.roastScore}/100`}
+                badge={`SHAME SCORE: ${result.roastScore}/100`}
                 badgeColor={result.roastScore > 60 ? "border-[#e3b341] text-[#e3b341]" : "border-emerald-400 text-emerald-400"}
               >
                 <p className="font-bold text-[#f0f6fc]">
-                  I pulled the file tree for <span className="underline decoration-[#e3b341]">{result.repoName}</span>.
-                </p>
-                <p className="text-[#8b949e] mt-1">
-                  Defect Index calculated at <span className="font-bold text-[#f0f6fc]">{result.roastScore}/100</span>. Here is the post-mortem summary:
+                  Target: <span className="underline decoration-[#e3b341]">{result.repoName}</span>
                 </p>
               </DialogueBubble>
             )}
 
-            {/* Bubble 2: Detailed Roast Breakdown */}
             {result && revealedBubbles >= 2 && (
               <DialogueBubble sender="Unit 404" highlight>
-                <p className="font-sans text-sm text-[#f0f6fc] leading-relaxed whitespace-pre-line">
+                <p className="font-sans text-sm text-[#f0f6fc] leading-relaxed whitespace-pre-line font-medium">
                   {result.roast}
                 </p>
               </DialogueBubble>
             )}
 
-            {/* Bubble 3: Architectural Red Flags */}
             {result && revealedBubbles >= 3 && (
               <DialogueBubble sender="Unit 404">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wider block mb-2">
-                  FLAGGED DEFECTS ENCOUNTERED:
+                <span className="text-[10px] text-[#8b949e] uppercase tracking-wider block mb-2 font-bold">
+                  FLAGGED ANTI-PATTERNS:
                 </span>
                 <div className="space-y-2">
                   {result.codeSmells.map((smellItem, idx) => {
                     const title = typeof smellItem === "string" ? smellItem : smellItem.smell;
                     const detail = typeof smellItem === "string" ? null : smellItem.detail;
                     return (
-                      <div
-                        key={idx}
-                        className="border border-[#30363d] bg-[#161b22] p-2.5 space-y-1"
-                      >
+                      <div key={idx} className="border border-[#30363d] bg-[#161b22] p-2.5 space-y-1">
                         <div className="text-[#e3b341] font-semibold flex items-center gap-1.5">
                           <span>&bull;</span>
                           <span>{title}</span>
                         </div>
-                        {detail && (
-                          <p className="text-[#8b949e] font-sans text-xs pl-3">
-                            {detail}
-                          </p>
-                        )}
+                        {detail && <p className="text-[#8b949e] font-sans text-xs pl-3">{detail}</p>}
                       </div>
                     );
                   })}
@@ -258,11 +247,10 @@ export default function Home() {
               </DialogueBubble>
             )}
 
-            {/* Bubble 4: Final Hiring Verdict */}
             {result && revealedBubbles >= 4 && (
               <DialogueBubble sender="Unit 404" isFinal>
                 <span className="text-[10px] text-[#e3b341] uppercase tracking-wider block font-bold">
-                  FINAL COMMITTEE DISPOSITION
+                  VERDICT:
                 </span>
                 <p className="font-sans text-sm font-semibold text-[#f0f6fc] mt-1">
                   &ldquo;{result.verdict}&rdquo;
@@ -272,20 +260,104 @@ export default function Home() {
 
             <div ref={dialogueEndRef} />
           </div>
-
         </section>
-
       </main>
 
-      <footer className="max-w-3xl w-full mx-auto pt-6 border-t border-[#30363d] mt-8 flex justify-between text-xs font-mono text-[#8b949e]">
-        <span>git trees metadata evaluation</span>
-        <span>ephemeral session</span>
+      {/* Footer with built-in Legal Modals Trigger */}
+      <footer className="max-w-3xl w-full mx-auto pt-6 border-t border-[#30363d] mt-8 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs font-mono text-[#8b949e]">
+        <div className="flex gap-4">
+          <button
+            onClick={() => setActiveLegalModal("terms")}
+            className="hover:text-[#f0f6fc] underline underline-offset-4 decoration-[#30363d] cursor-pointer"
+          >
+            Terms &amp; Disclaimer
+          </button>
+          <button
+            onClick={() => setActiveLegalModal("privacy")}
+            className="hover:text-[#f0f6fc] underline underline-offset-4 decoration-[#30363d] cursor-pointer"
+          >
+            Privacy &amp; Data Policy
+          </button>
+        </div>
+        <span>zero code stored &bull; ephemeral processing</span>
       </footer>
+
+      {/* --- INLINE LEGAL MODAL (No extra files needed) --- */}
+      {activeLegalModal !== "none" && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-[#161b22] border border-[#30363d] max-w-lg w-full p-6 text-xs font-mono space-y-4 max-h-[85vh] overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-[#30363d] pb-3">
+              <span className="text-[#e3b341] font-bold uppercase">
+                {activeLegalModal === "terms" ? "Terms & Satirical Disclaimer" : "Privacy & Minimal Data Policy"}
+              </span>
+              <button
+                onClick={() => setActiveLegalModal("none")}
+                className="text-[#8b949e] hover:text-white px-2 py-0.5 border border-[#30363d] cursor-pointer"
+              >
+                CLOSE [X]
+              </button>
+            </div>
+
+            {activeLegalModal === "terms" ? (
+              <div className="space-y-3 text-[#8b949e] leading-relaxed">
+                <p>
+                  <strong>1. Satire &amp; Entertainment Disclaimer:</strong> repo/autopsy is an educational and satirical diagnostic tool. The commentary and scores are generated by an AI model and do not constitute formal security audits, professional code warranties, or employment decisions.
+                </p>
+                <p>
+                  <strong>2. Non-Affiliation:</strong> This service is not affiliated with, endorsed by, or associated with GitHub, Microsoft, or Google.
+                </p>
+                <p>
+                  <strong>3. Limitation of Liability:</strong> The service is provided &ldquo;AS IS&rdquo;. The creators bear zero liability for any decisions made based on satirical outputs or temporary server unavailability.
+                </p>
+                <p>
+                  <strong>4. Anti-Abuse:</strong> Automated flooding, bot scraping, and unauthorized attempts to overwhelm the serverless functions are strictly prohibited and actively rate-limited.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3 text-[#8b949e] leading-relaxed">
+                <p>
+                  <strong>1. Zero Code Retention:</strong> We practice strict data minimization. We do not store, duplicate, or sell your source code, tree data, or repository names in any permanent database.
+                </p>
+                <p>
+                  <strong>2. Ephemeral Processing:</strong> When you provide a public repository URL, the server queries the public GitHub API, analyzes the tree data via Gemini, and returns the response. All memory is flushed immediately after execution.
+                </p>
+                <p>
+                  <strong>3. Cookies:</strong> We do not use third-party advertising cookies or trackers. We only utilize your browser&apos;s <code>localStorage</code> to store functional UI preferences (like closing the cookie banner).
+                </p>
+                <p>
+                  <strong>4. IP Address Handling:</strong> IP addresses are ephemerally checked in server memory strictly to enforce rate limits and prevent abuse. They are never recorded in long-term analytical databases.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* --- INLINE MINIMAL COOKIE / DATA CONSENT BANNER --- */}
+      {!cookieConsent && (
+        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-[#0d1117] border border-[#30363d] p-4 text-xs font-mono z-40 shadow-2xl space-y-2">
+          <div className="flex justify-between items-center text-[#f0f6fc]">
+            <span className="font-bold text-[#e3b341]">[!] PRIVACY NOTICE</span>
+            <span className="text-[10px] text-[#8b949e]">GDPR / CCPA</span>
+          </div>
+          <p className="text-[#8b949e] text-[11px] leading-relaxed">
+            We do not collect personal data, track cookies, or store your repositories. We use local storage only to remember your UI preferences.
+          </p>
+          <div className="flex justify-end pt-1">
+            <button
+              onClick={handleConsent}
+              className="px-3 py-1 bg-[#30363d] hover:bg-[#e3b341] hover:text-[#161b22] text-[#f0f6fc] font-semibold text-[10px] transition-colors cursor-pointer"
+            >
+              ACKNOWLEDGE
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
-// Custom Speech Bubble Component
 function DialogueBubble({
   sender,
   children,
@@ -327,7 +399,6 @@ function DialogueBubble({
   );
 }
 
-// Inline Animated Vector Avatar
 function CoronerAvatar({ mood }: { mood: CharacterMood }) {
   const isScanning = mood === "scanning";
   const isShocked = mood === "shocked";
@@ -335,21 +406,15 @@ function CoronerAvatar({ mood }: { mood: CharacterMood }) {
 
   return (
     <div className="relative w-14 h-14 bg-[#161b22] border border-[#30363d] flex items-center justify-center shrink-0 overflow-hidden">
-      {/* Top Antenna */}
       <div
         className={`absolute top-1 w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
           isScanning ? "bg-[#e3b341] animate-ping" : "bg-[#8b949e]"
         }`}
       />
-
-      {/* Robot Face Grid */}
       <div className="w-10 h-8 border border-[#30363d] bg-[#0d1117] flex flex-col justify-between p-1.5 relative">
-        
-        {/* Eyes Row */}
         <div className="flex justify-between items-center px-1">
-          {/* Left Eye */}
           <div
-            className={`w-2 h-2 rounded-xs transition-all duration-200 ${
+            className={`w-2 h-2 transition-all duration-200 ${
               isShocked
                 ? "bg-[#e3b341] scale-125"
                 : isScanning
@@ -359,9 +424,8 @@ function CoronerAvatar({ mood }: { mood: CharacterMood }) {
                 : "bg-[#e3b341]"
             }`}
           />
-          {/* Right Eye */}
           <div
-            className={`w-2 h-2 rounded-xs transition-all duration-200 ${
+            className={`w-2 h-2 transition-all duration-200 ${
               isShocked
                 ? "bg-[#e3b341] scale-125"
                 : isScanning
@@ -372,8 +436,6 @@ function CoronerAvatar({ mood }: { mood: CharacterMood }) {
             }`}
           />
         </div>
-
-        {/* Mouth / Audio Wave Readout */}
         <div className="flex justify-center items-center gap-0.5">
           {mood === "talking" ? (
             <>
