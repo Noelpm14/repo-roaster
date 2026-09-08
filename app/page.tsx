@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 interface CodeSmell {
   smell: string;
@@ -15,442 +15,359 @@ interface AuditResult {
   verdict: string;
 }
 
-type CharacterMood = "idle" | "scanning" | "disappointed" | "shocked" | "talking";
-type LegalTab = "none" | "terms" | "privacy";
-
 export default function Home() {
+  const [hasClearance, setHasClearance] = useState<boolean | null>(null);
   const [repoUrl, setRepoUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AuditResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"requisition" | "pathology" | "transcript" | "evidence">("requisition");
 
-  // Progressive bubble display
-  const [revealedBubbles, setRevealedBubbles] = useState<number>(0);
-  const [mood, setMood] = useState<CharacterMood>("idle");
-  const dialogueEndRef = useRef<HTMLDivElement>(null);
-
-  // Legal modal and Cookie banner state
-  const [activeLegalModal, setActiveLegalModal] = useState<LegalTab>("none");
-  const [cookieConsent, setCookieConsent] = useState(true);
-
+  // Check if user has already accepted the privacy/cookie policy
   useEffect(() => {
-    // Check if user has acknowledged the cookie banner before
-    const hasConsented = localStorage.getItem("autopsy_consent_granted");
-    if (!hasConsented) setCookieConsent(false);
+    const clearance = localStorage.getItem("autopsy_clearance");
+    setHasClearance(!!clearance);
   }, []);
 
-  const handleConsent = () => {
-    localStorage.setItem("autopsy_consent_granted", "true");
-    setCookieConsent(true);
+  const grantClearance = () => {
+    localStorage.setItem("autopsy_clearance", "true");
+    setHasClearance(true);
   };
 
-  useEffect(() => {
-    if (!result) return;
-    setRevealedBubbles(0);
-    setMood(result.roastScore > 70 ? "shocked" : "talking");
-
-    const delays = [200, 1000, 1800, 2600];
-    const timers = delays.map((delay, idx) =>
-      setTimeout(() => {
-        setRevealedBubbles(idx + 1);
-        dialogueEndRef.current?.scrollIntoView({ behavior: "smooth" });
-        if (idx === delays.length - 1) {
-          setMood(result.roastScore > 65 ? "disappointed" : "idle");
-        }
-      }, delay)
-    );
-
-    return () => timers.forEach(clearTimeout);
-  }, [result]);
-
-  const handleAudit = async (targetOverride?: string) => {
-    const target = targetOverride || repoUrl;
-    if (!target.trim()) return;
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!repoUrl.trim()) return;
 
     setLoading(true);
     setError(null);
     setResult(null);
-    setRevealedBubbles(0);
-    setMood("scanning");
 
     try {
       const res = await fetch("/api/roast", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ repoUrl: target }),
+        body: JSON.stringify({ repoUrl }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Inspection failed.");
+      if (!res.ok) throw new Error(data.error || "Execution fault during audit.");
+      
       setResult(data);
+      setActiveTab("pathology");
     } catch (err: any) {
-      setError(err.message || "Failed to inspect repository.");
-      setMood("disappointed");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#161b22] text-[#f0f6fc] antialiased flex flex-col justify-between p-4 sm:p-8 selection:bg-[#e3b341] selection:text-[#161b22] relative">
-      <main className="max-w-3xl w-full mx-auto space-y-6 pt-4">
+  // Prevent UI flashing before local storage is checked
+  if (hasClearance === null) return <div className="min-h-screen bg-[#0a0f14]" />;
 
-        {/* Top Masthead */}
-        <header className="border-b border-[#30363d] pb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#e3b341] inline-block animate-pulse" />
-            <h1 className="text-sm font-bold font-mono tracking-tight text-[#f0f6fc]">
-              repo/autopsy :: chief_examiner
-            </h1>
-          </div>
-          <span className="text-[11px] font-mono text-[#8b949e]">
-            v2.2 &bull; safe &amp; rate-guarded
-          </span>
-        </header>
+  // --- BEGIN: INTRODUCTION & CLEARANCE GATEWAY ---
+  if (!hasClearance) {
+    return (
+      <>
+        <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Special+Elite&display=swap" rel="stylesheet" />
+        <div className="min-h-screen bg-[#0a0f14] text-stone-300 font-['Courier_Prime',monospace] flex items-center justify-center p-4 selection:bg-red-900 selection:text-white">
+          
+          <div className="max-w-2xl w-full border border-stone-700 bg-[#11161d] p-1 shadow-2xl relative">
+            {/* Corner brackets */}
+            <div className="absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 border-red-800/70" />
+            <div className="absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 border-red-800/70" />
+            <div className="absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 border-red-800/70" />
+            <div className="absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 border-red-800/70" />
 
-        {/* Search / Target Input Bar */}
-        <section className="space-y-3">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleAudit();
-            }}
-            className="flex flex-col sm:flex-row border border-[#30363d] bg-[#0d1117] focus-within:border-[#e3b341] transition-colors"
-          >
-            <div className="flex items-center px-4 py-3 flex-1 text-sm font-mono border-b sm:border-b-0 sm:border-r border-[#30363d]">
-              <span className="text-[#8b949e] select-none pr-1">github.com/</span>
-              <input
-                type="text"
-                value={repoUrl.replace(/https?:\/\/github\.com\/?/, "")}
-                onChange={(e) => setRepoUrl(e.target.value)}
-                placeholder="owner/repo"
-                className="w-full bg-transparent focus:outline-none text-[#f0f6fc] placeholder-[#8b949e]/40 font-mono"
-                spellCheck={false}
-              />
-            </div>
+            <div className="border border-stone-700/50 p-6 md:p-10">
+              <header className="border-b border-stone-700 pb-4 mb-6 text-center">
+                <h1 className="text-xl md:text-2xl font-bold text-stone-100 tracking-widest uppercase">Security Clearance Required</h1>
+                <p className="text-xs text-stone-500 mt-2">DEPARTMENT OF CODEBASE PATHOLOGY // SOP-09</p>
+              </header>
 
-            <button
-              type="submit"
-              disabled={loading || !repoUrl.trim()}
-              className="px-6 py-3 bg-[#30363d] hover:bg-[#e3b341] hover:text-[#161b22] text-[#f0f6fc] font-mono text-xs font-semibold tracking-wide transition-colors disabled:opacity-40 disabled:hover:bg-[#30363d] disabled:hover:text-[#f0f6fc] cursor-pointer"
-            >
-              {loading ? "EXAMINER RUNNING..." : "SUBMIT FOR AUTOPSY"}
-            </button>
-          </form>
+              <div className="space-y-6 text-sm leading-relaxed">
+                <section>
+                  <h2 className="text-red-500 font-bold uppercase mb-1 flex items-center gap-2">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full inline-block animate-pulse" />
+                    Standard Operating Procedure
+                  </h2>
+                  <p className="text-stone-400">
+                    You are requesting access to the <strong>Unit 404 Autopsy Terminal</strong>. Your directive is to submit public GitHub repository coordinates. The system will parse the target's topology and generate a pathological assessment of its technical debt, anti-patterns, and architectural negligence.
+                  </p>
+                </section>
 
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap items-center gap-2 text-xs font-mono text-[#8b949e]">
-            <span>Quick targets:</span>
-            {["facebook/react", "torvalds/linux", "vercel/next.js"].map((slug) => (
-              <button
-                key={slug}
-                type="button"
-                onClick={() => {
-                  setRepoUrl(slug);
-                  handleAudit(slug);
-                }}
-                className="hover:text-[#f0f6fc] underline underline-offset-4 decoration-[#30363d] transition-colors cursor-pointer"
-              >
-                {slug}
-              </button>
-            ))}
-          </div>
-        </section>
+                <section>
+                  <h2 className="text-stone-100 font-bold uppercase mb-1">Privacy & Data Governance</h2>
+                  <p className="text-stone-400">
+                    <strong>Zero Code Retention:</strong> This facility operates on a strict ephemeral basis. We do not clone, store, or retain your source code. Target metadata is fetched dynamically via the public GitHub API, analyzed in memory, and immediately flushed upon completion.
+                  </p>
+                </section>
 
-        {/* Error readout */}
-        {error && (
-          <div className="border border-[#e3b341]/40 bg-[#0d1117] p-4 text-xs font-mono space-y-1">
-            <span className="text-[#e3b341] font-semibold">Coroner Alert:</span>
-            <div className="text-[#8b949e]">{error}</div>
-          </div>
-        )}
-
-        {/* The Animated Character & Dialogue Stage */}
-        <section className="border border-[#30363d] bg-[#0d1117] p-4 sm:p-6 space-y-6">
-          <div className="flex items-center gap-4 border-b border-[#30363d] pb-4">
-            <CoronerAvatar mood={mood} />
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-bold text-[#f0f6fc]">Unit 404 &quot;Coroner&quot;</span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 border border-[#30363d] text-[#8b949e] uppercase">
-                  {mood}
-                </span>
+                <section>
+                  <h2 className="text-stone-100 font-bold uppercase mb-1">Cookie & Storage Compliance</h2>
+                  <p className="text-stone-400">
+                    We utilize browser <code className="bg-stone-800 px-1 py-0.5 text-xs rounded text-stone-300">localStorage</code> strictly to remember your clearance level (preventing this prompt from recurring). <strong>No third-party trackers, analytical beacons, or advertising cookies are deployed on this terminal.</strong>
+                  </p>
+                </section>
               </div>
-              <p className="text-xs font-mono text-[#8b949e]">
-                {loading
-                  ? "Paging git trees & inspecting manifest debt..."
-                  : result
-                  ? `Inspection complete for ${result.repoName}.`
-                  : "Awaiting public repository target."}
-              </p>
+
+              <div className="mt-10 pt-6 border-t border-stone-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <span className="text-xs text-stone-500 font-['Special_Elite',cursive] uppercase tracking-widest">
+                  AUTHORIZATION PENDING...
+                </span>
+                <button 
+                  onClick={grantClearance}
+                  className="w-full sm:w-auto bg-stone-200 hover:bg-white text-stone-900 font-bold px-8 py-3 text-xs uppercase tracking-widest transition-colors shadow-[0_0_15px_rgba(255,255,255,0.1)] hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] cursor-pointer"
+                >
+                  ACKNOWLEDGE & ENTER
+                </button>
+              </div>
             </div>
           </div>
+        </div>
+      </>
+    );
+  }
+  // --- END: INTRODUCTION & CLEARANCE GATEWAY ---
 
-          {/* Dialogue Bubbles */}
-          <div className="space-y-4 font-mono text-xs">
-            {!loading && !result && (
-              <DialogueBubble sender="Unit 404">
-                <p className="text-[#8b949e]">
-                  Enter any public GitHub repo. I will read its tree structure and deliver a concise, brutal architectural autopsy.
-                </p>
-              </DialogueBubble>
-            )}
+  // --- BEGIN: MAIN DESK UI ---
+  return (
+    <>
+      <link href="https://fonts.googleapis.com/css2?family=Special+Elite&family=Courier+Prime:ital,wght@0,400;0,700;1,400&family=Cinzel:wght@600;800&family=Caveat:wght@600;700&display=swap" rel="stylesheet" />
 
-            {loading && (
-              <DialogueBubble sender="Unit 404">
-                <div className="flex items-center gap-2 text-[#e3b341]">
-                  <span className="w-2 h-2 rounded-full bg-[#e3b341] animate-ping" />
-                  <span>Probing repository topology...</span>
+      <style dangerouslySetInnerHTML={{ __html: `
+        .font-typewriter { font-family: 'Courier Prime', Courier, monospace; }
+        .font-stamp { font-family: 'Special Elite', cursive, monospace; }
+        .font-seal { font-family: 'Cinzel', serif; }
+        .font-hand { font-family: 'Caveat', cursive; }
+        .bg-woodgrain { background-color: #1a0f08; background-image: radial-gradient(ellipse at 50% 40%, rgba(68, 38, 20, 0.4) 0%, rgba(15, 8, 4, 0.95) 100%), repeating-linear-gradient(90deg, rgba(255,255,255,0.015) 0px, rgba(255,255,255,0.015) 2px, transparent 2px, transparent 8px), linear-gradient(to bottom, #23140c 0%, #170d07 100%); box-shadow: inset 0 0 160px rgba(0,0,0,0.92); }
+        .leather-mat { background: radial-gradient(circle at 48% 35%, #56331e 0%, #301a0d 80%, #201108 100%); border: 3px solid #6b4025; box-shadow: 0 25px 60px -10px rgba(0,0,0,0.9), 0 10px 25px rgba(0,0,0,0.8), inset 0 0 45px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.1); position: relative; }
+        .leather-mat::before { content: ''; position: absolute; inset: 8px; border: 2px dashed rgba(220, 185, 140, 0.35); border-radius: 14px; pointer-events: none; }
+        .topo-chart-bg { background-color: #d6ccba; background-image: radial-gradient(circle at 50% 50%, rgba(245, 239, 226, 0.75), rgba(204, 192, 172, 0.95)), radial-gradient(#5d6c52 0.75px, transparent 0.75px), repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(120, 135, 110, 0.18) 40px), repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(120, 135, 110, 0.18) 40px); background-size: 100% 100%, 20px 20px, 40px 40px, 40px 40px; }
+        .paper-sheet { background-color: #f7f3e8; background-image: linear-gradient(rgba(255,255,255,0.4), rgba(240,233,218,0.7)), radial-gradient(#111 0.4px, transparent 0.4px); background-size: 100%, 14px 14px; box-shadow: 0 18px 30px -10px rgba(0,0,0,0.45), 0 4px 10px rgba(0,0,0,0.25), inset 0 0 30px rgba(184, 160, 126, 0.2); }
+        .rubber-stamp { mix-blend-mode: multiply; filter: contrast(160%) drop-shadow(0px 0px 0.4px rgba(180,0,0,0.4)); border: 3.5px double currentColor; text-transform: uppercase; letter-spacing: 0.15em; position: relative; }
+        .postage-stamp { background: #fbf7ee; box-shadow: 0 4px 8px rgba(0,0,0,0.3); border: 4px dotted #c9bda4; outline: 2px solid #fbf7ee; }
+        .paperclip-clip { position: absolute; width: 14px; height: 48px; border: 3px solid #8e959e; border-radius: 9px 9px 0 0; border-bottom: none; z-index: 50; box-shadow: 2px 2px 4px rgba(0,0,0,0.35), inset 1px 1px 1px #ffffff; }
+        .paperclip-clip::after { content: ''; position: absolute; top: 8px; left: 2px; width: 6px; height: 38px; border: 2px solid #757d87; border-radius: 5px 5px 0 0; border-bottom: none; }
+        .folder-tab { transition: all 0.18s ease-in-out; transform-origin: bottom center; }
+        .folder-tab:hover { transform: translateY(-3px); }
+        .active-tab { background-color: #f7f3e8 !important; color: #1a222d !important; font-weight: 700; border-bottom-color: #f7f3e8 !important; z-index: 40 !important; box-shadow: 0 -4px 10px rgba(0,0,0,0.18); }
+      `}} />
+
+      <div className="bg-woodgrain min-h-screen text-stone-900 font-typewriter overflow-x-hidden selection:bg-red-800 selection:text-white p-3 md:p-6 lg:p-8 flex items-center justify-center animate-in fade-in duration-1000">
+        <main className="leather-mat w-full max-w-[1520px] rounded-2xl p-4 sm:p-7 md:p-9 my-auto overflow-hidden">
+          
+          <div className="topo-chart-bg relative rounded-xl border border-stone-400/70 p-4 sm:p-6 md:p-8 overflow-hidden min-h-[860px]">
+            <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-45" xmlns="http://www.w3.org/2000/svg">
+              <path d="M 120 180 Q 280 120 440 310 T 890 280 T 1280 490" fill="none" stroke="#3b5240" strokeDasharray="6,4" strokeWidth="2"></path>
+              <path d="M 210 650 Q 520 780 830 540 T 1390 620" fill="none" stroke="#5a3d31" strokeDasharray="10,6" strokeWidth="2.5"></path>
+              <circle cx="120" cy="180" fill="#882222" r="7"></circle>
+              <circle cx="440" cy="310" fill="#25446b" r="6"></circle>
+              <circle cx="890" cy="280" fill="none" r="9" stroke="#882222" strokeWidth="3"></circle>
+              <circle cx="1280" cy="490" fill="#5a3d31" r="8"></circle>
+            </svg>
+
+            <div className="absolute top-4 left-1/2 -translate-x-1/2 select-none pointer-events-none text-center">
+              <div className="rubber-stamp font-stamp text-stone-700/35 text-3xl sm:text-5xl md:text-6xl tracking-widest px-8 py-2 border-stone-600/30">
+                REPO-AUTOPSY.ORG
+              </div>
+              <p className="font-typewriter text-xs tracking-widest text-stone-600/50 mt-1 uppercase">Central Repository Registry // Division of Codebase Pathology</p>
+            </div>
+
+            <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-6 pt-12 sm:pt-14 items-start">
+              
+              {/* LEFT BOARD: DYNAMIC LIVE STATS */}
+              <section className="lg:col-span-4 relative rotate-[-1.2deg] transition-transform hover:rotate-0 duration-300">
+                <div className="absolute -top-5 left-1/2 -translate-x-1/2 z-30 w-36 h-10 bg-gradient-to-b from-stone-400 via-stone-300 to-stone-500 rounded-t shadow-md border-t border-stone-200 flex items-center justify-center">
+                  <div className="w-16 h-2 bg-stone-700/60 rounded-full shadow-inner"></div>
+                  <div className="absolute -top-3 w-8 h-4 border-2 border-stone-500 rounded-t-full"></div>
                 </div>
-              </DialogueBubble>
-            )}
 
-            {result && revealedBubbles >= 1 && (
-              <DialogueBubble
-                sender="Unit 404"
-                badge={`SHAME SCORE: ${result.roastScore}/100`}
-                badgeColor={result.roastScore > 60 ? "border-[#e3b341] text-[#e3b341]" : "border-emerald-400 text-emerald-400"}
-              >
-                <p className="font-bold text-[#f0f6fc]">
-                  Target: <span className="underline decoration-[#e3b341]">{result.repoName}</span>
-                </p>
-              </DialogueBubble>
-            )}
+                <article className="paper-sheet rounded-sm border border-stone-300 p-6 pt-9 text-xs sm:text-sm text-stone-900 leading-relaxed shadow-2xl relative">
+                  {result && (
+                    <div className={`absolute top-8 right-4 rubber-stamp font-stamp text-xs sm:text-sm px-2 py-0.5 rotate-[-8deg] font-bold pointer-events-none ${result.roastScore > 75 ? "text-red-700 border-red-700/80" : "text-amber-700 border-amber-700/80"}`}>
+                      {result.roastScore > 75 ? "MORTALITY: FLATLINED" : "CRITICAL CONDITION"}
+                    </div>
+                  )}
 
-            {result && revealedBubbles >= 2 && (
-              <DialogueBubble sender="Unit 404" highlight>
-                <p className="font-sans text-sm text-[#f0f6fc] leading-relaxed whitespace-pre-line font-medium">
-                  {result.roast}
-                </p>
-              </DialogueBubble>
-            )}
+                  <div className="border-b-2 border-stone-900 pb-3 mb-4">
+                    <h1 className="text-base sm:text-lg font-bold tracking-tight font-typewriter uppercase">INCIDENT REPORT // FORM 1-A</h1>
+                    <p className="text-[11px] text-stone-600 tracking-wider">CASE REF: #404-AUTOPSY</p>
+                  </div>
 
-            {result && revealedBubbles >= 3 && (
-              <DialogueBubble sender="Unit 404">
-                <span className="text-[10px] text-[#8b949e] uppercase tracking-wider block mb-2 font-bold">
-                  FLAGGED ANTI-PATTERNS:
-                </span>
-                <div className="space-y-2">
-                  {result.codeSmells.map((smellItem, idx) => {
-                    const title = typeof smellItem === "string" ? smellItem : smellItem.smell;
-                    const detail = typeof smellItem === "string" ? null : smellItem.detail;
-                    return (
-                      <div key={idx} className="border border-[#30363d] bg-[#161b22] p-2.5 space-y-1">
-                        <div className="text-[#e3b341] font-semibold flex items-center gap-1.5">
-                          <span>&bull;</span>
-                          <span>{title}</span>
-                        </div>
-                        {detail && <p className="text-[#8b949e] font-sans text-xs pl-3">{detail}</p>}
+                  <div className="space-y-3 mb-5">
+                    <div>
+                      <span className="font-bold block text-stone-600 text-[11px] tracking-wider uppercase">[ TARGET SPECIMEN ]</span>
+                      <p className="font-bold text-sm bg-stone-200/70 px-2 py-1 border-l-2 border-stone-900">
+                        {result ? result.repoName : (loading ? "EXTRACTING DATA..." : "AWAITING SPECIMEN")}
+                      </p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-[12px]">
+                      <div>
+                        <span className="text-stone-500 block text-[10px] uppercase">Incident Date:</span>
+                        <span className="font-semibold">{new Date().toLocaleDateString()}</span>
                       </div>
-                    );
-                  })}
+                      <div>
+                        <span className="text-stone-500 block text-[10px] uppercase">Primary Cause:</span>
+                        <span className="font-bold text-red-800">Architectural Negligence</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="border border-dashed border-stone-400 rounded p-3 bg-stone-100/70 mb-5 relative">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-[11px] uppercase tracking-wide">Cognitive Hazard Metric</span>
+                      <span className="text-xs font-bold text-red-700 font-mono">{result ? result.roastScore : 0}% ROT</span>
+                    </div>
+                    <div className="w-full bg-stone-300 h-4 rounded-sm border border-stone-400 overflow-hidden relative p-0.5">
+                      <div 
+                        className="bg-gradient-to-r from-amber-600 via-red-600 to-rose-900 h-full rounded-sm transition-all duration-1000"
+                        style={{ width: `${result ? result.roastScore : 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[10px] font-hand text-stone-700 mt-1.5 text-right -rotate-1">
+                      * Monitored by Coroner Unit 404
+                    </p>
+                  </div>
+
+                  <div className="bg-stone-200/50 p-2 border-t border-stone-300 text-[11px] leading-snug">
+                    <span className="font-bold text-stone-600">CORONER VERDICT: </span>
+                    <span>{result ? result.verdict : "Standing by for codebase ingestion..."}</span>
+                  </div>
+
+                  <div className="mt-5 pt-3 border-t border-stone-400 flex justify-between items-end">
+                    <div>
+                      <p className="font-hand text-lg text-blue-900 -rotate-3 leading-none">Coroner Dr. A. Turing</p>
+                      <p className="text-[9px] text-stone-500 uppercase">Unit 404 Autopsy Officer #889</p>
+                    </div>
+                    {result && (
+                      <div className="w-12 h-12 rounded-full border-2 border-stone-400/80 flex items-center justify-center font-stamp text-[9px] text-stone-600 rotate-6">
+                        VERIFIED
+                      </div>
+                    )}
+                  </div>
+                </article>
+              </section>
+
+              {/* RIGHT TABS: INTERACTIVE DOSSIER */}
+              <section className="lg:col-span-8 relative">
+                <nav className="flex flex-wrap items-end gap-1.5 px-4 z-20 relative -mb-[1px]">
+                  <button onClick={() => setActiveTab('requisition')} className={`folder-tab bg-[#2d4159] text-stone-200 hover:text-white px-4 py-2 text-xs uppercase font-typewriter rounded-t-md border-t border-l border-r border-stone-600 shadow cursor-pointer ${activeTab === 'requisition' ? 'active-tab' : ''}`}>
+                    📋 Form 8-C: Target
+                  </button>
+                  <button onClick={() => setActiveTab('pathology')} className={`folder-tab bg-[#3a4d3d] text-stone-200 hover:text-white px-4 py-2 text-xs uppercase font-typewriter rounded-t-md border-t border-l border-r border-stone-600 shadow cursor-pointer ${activeTab === 'pathology' ? 'active-tab' : ''}`}>
+                    🔬 Pathology Analysis
+                  </button>
+                  <button onClick={() => setActiveTab('transcript')} className={`folder-tab bg-[#543b2f] text-stone-200 hover:text-white px-4 py-2 text-xs uppercase font-typewriter rounded-t-md border-t border-l border-r border-stone-600 shadow cursor-pointer ${activeTab === 'transcript' ? 'active-tab' : ''}`}>
+                    📼 Black-Box Log
+                  </button>
+                </nav>
+
+                <div className="bg-[#223247] text-stone-100 rounded-lg p-3 sm:p-5 shadow-2xl border-4 border-[#162232] relative min-h-[450px]">
+                  <div className="absolute inset-0 bg-[radial-gradient(#ffffff_0.5px,transparent_0.5px)] opacity-5 pointer-events-none"></div>
+
+                  {/* TAB 1: FORM INPUT */}
+                  <div className={`paper-sheet text-stone-900 rounded p-6 sm:p-9 shadow-inner border border-stone-300 transition-opacity duration-200 ${activeTab !== 'requisition' ? 'hidden' : 'block'}`}>
+                    <div className="paperclip-clip -top-4 right-10"></div>
+                    <header className="border-b-2 border-stone-900 pb-3 mb-6">
+                      <h2 className="text-lg sm:text-xl font-bold uppercase tracking-tight">FORM 8-C: SPECIMEN REQUISITION</h2>
+                      <p className="text-xs text-stone-600 mt-1">Enter a public GitHub repository link. Our coroner unit will parse the structural topology and deliver an unvarnished post-mortem.</p>
+                    </header>
+
+                    <form className="space-y-5 text-xs sm:text-sm" onSubmit={handleSubmit}>
+                      {error && (
+                         <div className="border border-dotted border-red-800/60 bg-red-50/40 p-3 rounded text-[11px] text-stone-800 leading-relaxed">
+                           <strong className="text-red-900 uppercase">SYSTEM FAULT: </strong> {error}
+                         </div>
+                      )}
+                      <div className="space-y-1">
+                        <label className="block font-bold uppercase text-[11px] text-stone-800 tracking-wider">
+                          1. Target Repository Coordinates <span className="text-red-700">*</span>
+                        </label>
+                        <input 
+                          type="text" 
+                          value={repoUrl.replace(/https?:\/\/github\.com\/?/, "")}
+                          onChange={(e) => setRepoUrl(e.target.value)}
+                          className="w-full bg-transparent border-0 border-b-2 border-dotted border-stone-500 focus:border-stone-900 focus:ring-0 px-1 py-1 font-typewriter text-stone-800 placeholder:text-stone-400 text-sm outline-none" 
+                          placeholder="owner/repo" 
+                          required 
+                          disabled={loading}
+                        />
+                      </div>
+
+                      <div className="pt-4 flex flex-wrap items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-3 h-3 rounded-full inline-block ${loading ? 'bg-amber-500 animate-ping' : 'bg-emerald-700'}`}></span>
+                          <span className="text-[10px] font-mono uppercase text-stone-600">Field Transceiver: {loading ? 'TRANSMITTING' : 'ONLINE'}</span>
+                        </div>
+                        <button 
+                          type="submit" 
+                          disabled={loading || !repoUrl}
+                          className="border-2 border-stone-800 bg-stone-200 hover:bg-stone-300 disabled:opacity-50 text-stone-900 font-bold px-6 py-2.5 rounded text-xs uppercase tracking-widest shadow flex items-center gap-2 transition-colors cursor-pointer"
+                        >
+                          {loading ? "EXTRACTING DATA..." : "TRANSMIT DISPATCH ↵"}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* TAB 2: PATHOLOGY */}
+                  <div className={`paper-sheet text-stone-900 rounded p-6 sm:p-9 shadow-inner border border-stone-300 ${activeTab !== 'pathology' ? 'hidden' : 'block'}`}>
+                    <header className="border-b-2 border-stone-900 pb-3 mb-5 flex justify-between items-start">
+                      <div>
+                        <h2 className="text-lg sm:text-xl font-bold uppercase tracking-tight">PATHOLOGICAL AUTOPSY FINDINGS</h2>
+                        <p className="text-xs text-stone-600">Specimen: <span className="font-mono font-bold">{result?.repoName || "AWAITING SPECIMEN"}</span></p>
+                      </div>
+                      {result && <span className="rubber-stamp text-red-700 text-xs px-2 py-0.5 rotate-2">BIO-HAZARD</span>}
+                    </header>
+                    <div className="space-y-4 text-xs sm:text-sm">
+                      {!result && !loading && <p className="text-stone-500 italic">No specimen data recorded. Please submit Form 8-C.</p>}
+                      {loading && <p className="text-stone-500 italic animate-pulse">Running diagnostics...</p>}
+                      {result?.codeSmells.map((smellItem: any, idx: number) => {
+                         const title = typeof smellItem === "string" ? smellItem : smellItem.smell;
+                         const detail = typeof smellItem === "string" ? null : smellItem.detail;
+                         return (
+                           <div key={idx} className="bg-stone-100 p-3 border-l-4 border-red-800">
+                             <h3 className="font-bold text-red-900 uppercase">Finding {idx + 1}: {title}</h3>
+                             {detail && <p className="mt-1 text-stone-700 leading-relaxed">{detail}</p>}
+                           </div>
+                         );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* TAB 3: BLACK BOX LOG */}
+                  <div className={`paper-sheet text-stone-900 rounded p-6 sm:p-9 shadow-inner border border-stone-300 ${activeTab !== 'transcript' ? 'hidden' : 'block'}`}>
+                    <header className="border-b-2 border-stone-900 pb-3 mb-4 flex justify-between items-center">
+                      <div>
+                        <h2 className="text-lg font-bold uppercase tracking-tight">TERMINAL RECOVERY TRANSCRIPT</h2>
+                        <p className="text-xs text-stone-600 font-mono">EXTRACTED FROM UNIT 404 LOGS</p>
+                      </div>
+                    </header>
+                    <div className="bg-stone-900 text-emerald-400 font-mono p-4 rounded text-xs space-y-1.5 overflow-x-auto border border-stone-700 shadow-inner min-h-[150px]">
+                      {!result && !loading && <p className="text-stone-500">[SYSTEM] Awaiting target payload...</p>}
+                      {loading && <p className="text-amber-400 animate-pulse">[SYSTEM] Decrypting manifest debt... please wait.</p>}
+                      {result && <p className="text-emerald-400 leading-relaxed whitespace-pre-line">{result.roast}</p>}
+                    </div>
+                  </div>
+
                 </div>
-              </DialogueBubble>
-            )}
-
-            {result && revealedBubbles >= 4 && (
-              <DialogueBubble sender="Unit 404" isFinal>
-                <span className="text-[10px] text-[#e3b341] uppercase tracking-wider block font-bold">
-                  VERDICT:
-                </span>
-                <p className="font-sans text-sm font-semibold text-[#f0f6fc] mt-1">
-                  &ldquo;{result.verdict}&rdquo;
-                </p>
-              </DialogueBubble>
-            )}
-
-            <div ref={dialogueEndRef} />
-          </div>
-        </section>
-      </main>
-
-      {/* Footer with built-in Legal Modals Trigger */}
-      <footer className="max-w-3xl w-full mx-auto pt-6 border-t border-[#30363d] mt-8 flex flex-col sm:flex-row justify-between items-center gap-3 text-xs font-mono text-[#8b949e]">
-        <div className="flex gap-4">
-          <button
-            onClick={() => setActiveLegalModal("terms")}
-            className="hover:text-[#f0f6fc] underline underline-offset-4 decoration-[#30363d] cursor-pointer"
-          >
-            Terms &amp; Disclaimer
-          </button>
-          <button
-            onClick={() => setActiveLegalModal("privacy")}
-            className="hover:text-[#f0f6fc] underline underline-offset-4 decoration-[#30363d] cursor-pointer"
-          >
-            Privacy &amp; Data Policy
-          </button>
-        </div>
-        <span>zero code stored &bull; ephemeral processing</span>
-      </footer>
-
-      {/* --- INLINE LEGAL MODAL (No extra files needed) --- */}
-      {activeLegalModal !== "none" && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-[#161b22] border border-[#30363d] max-w-lg w-full p-6 text-xs font-mono space-y-4 max-h-[85vh] overflow-y-auto">
-            <div className="flex justify-between items-center border-b border-[#30363d] pb-3">
-              <span className="text-[#e3b341] font-bold uppercase">
-                {activeLegalModal === "terms" ? "Terms & Satirical Disclaimer" : "Privacy & Minimal Data Policy"}
-              </span>
-              <button
-                onClick={() => setActiveLegalModal("none")}
-                className="text-[#8b949e] hover:text-white px-2 py-0.5 border border-[#30363d] cursor-pointer"
-              >
-                CLOSE [X]
-              </button>
+              </section>
             </div>
-
-            {activeLegalModal === "terms" ? (
-              <div className="space-y-3 text-[#8b949e] leading-relaxed">
-                <p>
-                  <strong>1. Satire &amp; Entertainment Disclaimer:</strong> repo/autopsy is an educational and satirical diagnostic tool. The commentary and scores are generated by an AI model and do not constitute formal security audits, professional code warranties, or employment decisions.
-                </p>
-                <p>
-                  <strong>2. Non-Affiliation:</strong> This service is not affiliated with, endorsed by, or associated with GitHub, Microsoft, or Google.
-                </p>
-                <p>
-                  <strong>3. Limitation of Liability:</strong> The service is provided &ldquo;AS IS&rdquo;. The creators bear zero liability for any decisions made based on satirical outputs or temporary server unavailability.
-                </p>
-                <p>
-                  <strong>4. Anti-Abuse:</strong> Automated flooding, bot scraping, and unauthorized attempts to overwhelm the serverless functions are strictly prohibited and actively rate-limited.
-                </p>
+            
+            <footer className="mt-12 pt-6 border-t border-stone-400/80 flex flex-wrap items-center justify-between gap-4 relative z-10 text-stone-700 text-xs">
+              <div className="flex items-center gap-2 select-none">
+                <div className="postage-stamp w-8 h-10 flex flex-col items-center justify-center rotate-[-3deg] hover:rotate-0 transition-transform cursor-pointer">
+                  <span className="font-bold text-xs font-stamp text-stone-800">git</span>
+                </div>
+                <span className="text-[10px] text-stone-600 ml-1 italic font-hand hidden sm:inline">Clearance level verified</span>
               </div>
-            ) : (
-              <div className="space-y-3 text-[#8b949e] leading-relaxed">
-                <p>
-                  <strong>1. Zero Code Retention:</strong> We practice strict data minimization. We do not store, duplicate, or sell your source code, tree data, or repository names in any permanent database.
-                </p>
-                <p>
-                  <strong>2. Ephemeral Processing:</strong> When you provide a public repository URL, the server queries the public GitHub API, analyzes the tree data via Gemini, and returns the response. All memory is flushed immediately after execution.
-                </p>
-                <p>
-                  <strong>3. Cookies:</strong> We do not use third-party advertising cookies or trackers. We only utilize your browser&apos;s <code>localStorage</code> to store functional UI preferences (like closing the cookie banner).
-                </p>
-                <p>
-                  <strong>4. IP Address Handling:</strong> IP addresses are ephemerally checked in server memory strictly to enforce rate limits and prevent abuse. They are never recorded in long-term analytical databases.
-                </p>
+              <div className="bg-stone-300/80 border border-stone-500 px-3 py-1 font-mono text-[10px] tracking-wider text-stone-800 uppercase shadow-sm">
+                PROPERTY OF THE INSTITUTE // CLASSIFICATION: CODE AUTOPSY
               </div>
-            )}
-          </div>
-        </div>
-      )}
+            </footer>
 
-      {/* --- INLINE MINIMAL COOKIE / DATA CONSENT BANNER --- */}
-      {!cookieConsent && (
-        <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-4 sm:max-w-md bg-[#0d1117] border border-[#30363d] p-4 text-xs font-mono z-40 shadow-2xl space-y-2">
-          <div className="flex justify-between items-center text-[#f0f6fc]">
-            <span className="font-bold text-[#e3b341]">[!] PRIVACY NOTICE</span>
-            <span className="text-[10px] text-[#8b949e]">GDPR / CCPA</span>
           </div>
-          <p className="text-[#8b949e] text-[11px] leading-relaxed">
-            We do not collect personal data, track cookies, or store your repositories. We use local storage only to remember your UI preferences.
-          </p>
-          <div className="flex justify-end pt-1">
-            <button
-              onClick={handleConsent}
-              className="px-3 py-1 bg-[#30363d] hover:bg-[#e3b341] hover:text-[#161b22] text-[#f0f6fc] font-semibold text-[10px] transition-colors cursor-pointer"
-            >
-              ACKNOWLEDGE
-            </button>
-          </div>
-        </div>
-      )}
-
-    </div>
-  );
-}
-
-function DialogueBubble({
-  sender,
-  children,
-  badge,
-  badgeColor,
-  highlight = false,
-  isFinal = false,
-}: {
-  sender: string;
-  children: React.ReactNode;
-  badge?: string;
-  badgeColor?: string;
-  highlight?: boolean;
-  isFinal?: boolean;
-}) {
-  return (
-    <div
-      className={`relative border p-4 transition-all duration-300 ${
-        isFinal
-          ? "border-[#e3b341] bg-[#161b22]"
-          : highlight
-          ? "border-[#30363d] bg-[#161b22]"
-          : "border-[#30363d]/60 bg-[#161b22]/50"
-      }`}
-    >
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-[11px] font-mono text-[#8b949e] flex items-center gap-1.5">
-          <span className="w-1.5 h-1.5 bg-[#e3b341] rounded-full inline-block" />
-          {sender}
-        </span>
-        {badge && (
-          <span className={`text-[10px] font-mono px-2 py-0.5 border ${badgeColor}`}>
-            {badge}
-          </span>
-        )}
+        </main>
       </div>
-      <div>{children}</div>
-    </div>
-  );
-}
-
-function CoronerAvatar({ mood }: { mood: CharacterMood }) {
-  const isScanning = mood === "scanning";
-  const isShocked = mood === "shocked";
-  const isDisappointed = mood === "disappointed";
-
-  return (
-    <div className="relative w-14 h-14 bg-[#161b22] border border-[#30363d] flex items-center justify-center shrink-0 overflow-hidden">
-      <div
-        className={`absolute top-1 w-1.5 h-1.5 rounded-full transition-colors duration-300 ${
-          isScanning ? "bg-[#e3b341] animate-ping" : "bg-[#8b949e]"
-        }`}
-      />
-      <div className="w-10 h-8 border border-[#30363d] bg-[#0d1117] flex flex-col justify-between p-1.5 relative">
-        <div className="flex justify-between items-center px-1">
-          <div
-            className={`w-2 h-2 transition-all duration-200 ${
-              isShocked
-                ? "bg-[#e3b341] scale-125"
-                : isScanning
-                ? "bg-[#e3b341] animate-pulse"
-                : isDisappointed
-                ? "bg-[#8b949e] h-0.5 mt-1"
-                : "bg-[#e3b341]"
-            }`}
-          />
-          <div
-            className={`w-2 h-2 transition-all duration-200 ${
-              isShocked
-                ? "bg-[#e3b341] scale-125"
-                : isScanning
-                ? "bg-[#e3b341] animate-pulse delay-75"
-                : isDisappointed
-                ? "bg-[#8b949e] h-0.5 mt-1"
-                : "bg-[#e3b341]"
-            }`}
-          />
-        </div>
-        <div className="flex justify-center items-center gap-0.5">
-          {mood === "talking" ? (
-            <>
-              <span className="w-1 h-1.5 bg-[#e3b341] animate-pulse" />
-              <span className="w-1 h-3 bg-[#e3b341] animate-pulse delay-100" />
-              <span className="w-1 h-2 bg-[#e3b341] animate-pulse delay-200" />
-              <span className="w-1 h-1 bg-[#e3b341] animate-pulse" />
-            </>
-          ) : isScanning ? (
-            <span className="w-6 h-0.5 bg-[#e3b341] animate-pulse" />
-          ) : (
-            <span className="w-4 h-0.5 bg-[#30363d]" />
-          )}
-        </div>
-      </div>
-    </div>
+    </>
   );
 }
