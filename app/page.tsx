@@ -28,7 +28,7 @@ export default function Home() {
   const [cookTime, setCookTime] = useState(0);
   const [activeReceiptTab, setActiveReceiptTab] = useState<"roast" | "crimes">("roast");
   
-  // NEW: Fake Stripe Button State
+  // Fake Stripe Button State
   const [bribeText, setBribeText] = useState("HIDE SCORE ($99)");
   
   // Hall of Fame / Shame live feed stored in local session state
@@ -144,7 +144,7 @@ export default function Home() {
     }, 100);
   };
 
-  // --- NEW GAG FUNCTIONS ---
+  // --- GAG FUNCTIONS ---
   const rewriteInRust = () => {
     playMechanicalBoom();
     alert("⚠️ SYSTEM FAULT: Let's be honest, you don't know how borrow checkers work. Go back to JavaScript.");
@@ -167,6 +167,31 @@ export default function Home() {
     alert("🏳️ APOLOGY PR COPIED. Go beg for forgiveness.");
   };
 
+  // NEW: Waterboard Me (Forces Psychopath Persona and re-roasts)
+  const waterboardMe = async () => {
+    playSound("boom");
+    setPersona("psychopath");
+    setAppState("cooking");
+    setError(null);
+
+    try {
+      const res = await fetch("/api/roast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ repoUrl, persona: "psychopath" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Execution fault during waterboarding.");
+
+      playSound("boom");
+      setResult(data);
+      setAppState("receipts");
+    } catch (err: any) {
+      setError(err.message);
+      setAppState("idle");
+    }
+  };
+
   const calculateDashOffset = (score: number) => {
     const circumference = 264; 
     return circumference - (circumference * score) / 100;
@@ -179,7 +204,6 @@ export default function Home() {
       <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
       <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Space+Grotesk:wght@700;800;900&display=swap" rel="stylesheet" />
 
-      {/* NEW CSS KEYFRAMES ADDED HERE */}
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
         .animate-marquee { display: flex; width: max-content; animation: marquee 28s linear infinite; }
@@ -303,7 +327,7 @@ export default function Home() {
                   {result.roast}
                 </div>
 
-                {/* NEW: GIT BLAME ROULETTE */}
+                {/* GIT BLAME ROULETTE */}
                 <div className="w-full bg-[#131315] border-2 border-red-900/50 p-4 shadow-[4px_4px_0px_#27272a] mb-8">
                   <div className="text-[12px] text-zinc-500 font-mono font-bold tracking-widest mb-1 uppercase">Automated Git Blame Analysis:</div>
                   <div className="text-xl font-['Space_Grotesk'] font-black uppercase text-pink-500 tracking-tight">
@@ -311,10 +335,14 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* NEW: GAG ACTION BUTTONS */}
+                {/* GAG ACTION BUTTONS */}
                 <div className="flex flex-wrap items-center gap-4 bg-zinc-950 p-6 border-2 border-zinc-800">
                   <span className="w-full text-[12px] text-zinc-500 uppercase tracking-widest font-bold mb-2">DAMAGE CONTROL OPTIONS:</span>
                   
+                  <button onClick={waterboardMe} className="bg-purple-600 hover:bg-purple-500 text-white font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#000] transition-all hover:translate-y-1 hover:shadow-[2px_2px_0px_#000]">
+                    WATERBOARD ME 🌊
+                  </button>
+
                   <button onClick={rewriteInRust} className="bg-[#ea580c] hover:bg-[#c2410c] text-black font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#ea580c] transition-all hover:translate-y-1 hover:shadow-[2px_2px_0px_#ea580c]">
                     Rewrite in Rust 🦀
                   </button>
