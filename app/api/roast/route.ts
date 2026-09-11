@@ -51,6 +51,18 @@ export async function POST(req: Request) {
 
     return NextResponse.json(data);
   } catch (error: any) {
+    // If we hit a rate limit (429) or quota error, return a fake response to save the demo!
+    const errorMessage = error.message?.toLowerCase() || "";
+    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("exhausted")) {
+      return NextResponse.json({
+        repoName: "RateLimit-Exhausted/Skill-Issue",
+        roastScore: 99,
+        verdict: "Your code is so bad it literally broke Google's servers. API Quota exhausted.",
+        roast: "Congratulations. I tried to read your codebase and my API key revoked itself in self-defense. We ran out of free-tier tokens just trying to process the sheer volume of technical debt in this repository. I am officially refusing to evaluate this until you pay for a premium API tier.",
+        codeSmells: ["DDoS via bad architecture", "Exhausting free tier limits", "Uncaught Skill Issue"]
+      });
+    }
+
+    // Standard error handling
     return NextResponse.json({ error: error.message || "Failed to execute roast." }, { status: 500 });
   }
-}
