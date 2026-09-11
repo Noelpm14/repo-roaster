@@ -26,7 +26,6 @@ export default function Home() {
   const [result, setResult] = useState<AuditResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [cookTime, setCookTime] = useState(0);
-  const [activeReceiptTab, setActiveReceiptTab] = useState<"roast" | "crimes">("roast");
   
   // Gag states
   const [bribeText, setBribeText] = useState("HIDE SCORE ($99)");
@@ -52,7 +51,6 @@ export default function Home() {
     setAppState("idle");
   };
 
-  // Cooking Timer
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (appState === "cooking") {
@@ -62,7 +60,6 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [appState]);
 
-  // Sound Effects
   const playSound = (type: "click" | "boom" | "success") => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -139,15 +136,6 @@ export default function Home() {
     }
   };
 
-  const setBenchmark = (repo: string) => {
-    setRepoUrl(repo);
-    setTimeout(() => {
-      const form = document.getElementById("roast-form");
-      if (form) form.dispatchEvent(new Event("submit", { cancelable: true, bubbles: true }));
-    }, 100);
-  };
-
-  // --- FEATURE 1: WATERBOARD ME (Auto-Loop Roast) ---
   const triggerWaterboard = async () => {
     if (isWaterboarding || !repoUrl) return;
     setIsWaterboarding(true);
@@ -162,7 +150,6 @@ export default function Home() {
     setIsWaterboarding(false);
   };
 
-  // --- FEATURE 2: EASTER EGG FOOTER HANDLER ---
   const handleFooterClick = () => {
     playSound("click");
     const nextCount = footerClicks + 1;
@@ -173,7 +160,6 @@ export default function Home() {
     }
   };
 
-  // --- EXISTING GAG FUNCTIONS ---
   const rewriteInRust = () => {
     playMechanicalBoom();
     alert("⚠️ SYSTEM FAULT: Let's be honest, you don't know how borrow checkers work. Go back to JavaScript.");
@@ -201,25 +187,40 @@ export default function Home() {
     alert("⚠️ CYBER ALERT: Successfully leaked 4x AWS root keys, plaintext database passwords, and your browser history to Russian Telegram channels. Good luck.");
   };
 
-  const calculateDashOffset = (score: number) => {
-    const circumference = 264; 
-    return circumference - (circumference * score) / 100;
+  // --- NEW STUPID GAG FUNCTIONS ---
+  const generateSlackExcuse = () => {
+    playSound("click");
+    alert("🚨 EXCUSE COPIED: 'It's not a bug, it's an undocumented asynchronous event handler optimized for future legacy support.' (Sent to #engineering)");
+  };
+
+  const selfDestructRepo = () => {
+    playSound("boom");
+    let count = 3;
+    const interval = setInterval(() => {
+      if (count >= 0) {
+        alert(`💥 SELF DESTRUCT IN ${count}... (Just kidding, your code is already destroyed)`);
+        count--;
+      } else {
+        clearInterval(interval);
+      }
+    }, 400);
+  };
+
+  const notifyHR = () => {
+    playSound("click");
+    alert("⚠️ HR ALERT: Human Resources has flagged your commit messages for 'Aggressive Emotional Outbursts at 3 AM'. Mandatory team-building seminar scheduled.");
   };
 
   if (!mounted) return <div className="min-h-screen bg-[#09090b]" />;
 
   return (
     <>
-      <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" rel="stylesheet" />
       <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&family=Space+Grotesk:wght@700;800;900&display=swap" rel="stylesheet" />
 
       <style dangerouslySetInnerHTML={{ __html: `
         @keyframes marquee { 0% { transform: translateX(0%); } 100% { transform: translateX(-50%); } }
         .animate-marquee { display: flex; width: max-content; animation: marquee 28s linear infinite; }
         .cyber-grid { background-size: 32px 32px; background-image: linear-gradient(to right, rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.03) 1px, transparent 1px); }
-        @keyframes waveform { 0%, 100% { stroke-dashoffset: 0; transform: scaleY(1); } 50% { stroke-dashoffset: 120; transform: scaleY(1.35); } }
-        .waveform-path { animation: waveform 3.2s ease-in-out infinite alternate; transform-origin: center; }
-        
         @keyframes criticalShake {
           0%, 100% { transform: translate(0, 0) rotate(0deg); }
           25% { transform: translate(4px, 4px) rotate(1deg); }
@@ -229,7 +230,6 @@ export default function Home() {
         .animate-shake { animation: criticalShake 0.3s ease-in-out infinite; }
       `}} />
 
-      {/* --- FEATURE 3: BOSS KEY (PANIC MODE) OVERLAY --- */}
       {isBossMode && (
         <div className="fixed inset-0 z-50 bg-[#f4f5f7] text-[#172b4d] font-sans p-6 overflow-y-auto">
           <div className="max-w-7xl mx-auto flex flex-col gap-6">
@@ -260,7 +260,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* --- FEATURE 2: MATRIX EASTER EGG OVERLAY --- */}
       {showMatrix && (
         <div className="fixed inset-0 bg-black/95 z-50 p-8 font-mono text-green-500 overflow-hidden flex flex-col justify-between">
           <div className="flex items-center justify-between border-b border-green-800 pb-4">
@@ -275,7 +274,6 @@ export default function Home() {
             <p>{">"} Bypassing firewall protocols via unmanaged useEffect hooks...</p>
             <p>{">"} Extracting plaintext environment variables to remote secure server...</p>
             <p className="text-green-300">{">"} WARNING: Codebase toxicity level has exceeded legal international parameters.</p>
-            <p>{">"} 01001001 01001110 01010011 01010100 01000001 01001110 01010100 00100000 01000100 01000001 01001101 01000001 01000111 01000101</p>
           </div>
           <div className="text-xs text-green-700">SECURE CONNECTION ESTABLISHED // NO ESCAPE</div>
         </div>
@@ -283,7 +281,6 @@ export default function Home() {
 
       <div className="bg-[#09090b] text-zinc-200 font-['JetBrains_Mono'] text-[14px] cyber-grid min-h-screen selection:bg-[#d99753] selection:text-black">
         
-        {/* --- BOSS KEY TRIGGER BUTTON (FIXED CORNER) --- */}
         <button onClick={() => setIsBossMode(true)} className="fixed top-4 right-4 z-40 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 px-3 py-1.5 text-xs font-bold border-2 border-zinc-600 shadow-[2px_2px_0px_#000]">
           BOSS KEY (JIRA) 📊
         </button>
@@ -310,7 +307,6 @@ export default function Home() {
         </header>
 
         <main className="w-full pt-32 pb-16 min-h-[calc(100vh-100px)]">
-          
           {appState === "gateway" && (
             <div className="w-full max-w-4xl mx-auto px-4 py-12 flex flex-col items-center justify-center">
               <div className="w-full bg-[#131315] border border-zinc-800 rounded-none shadow-[8px_8px_0px_#000]">
@@ -367,7 +363,6 @@ export default function Home() {
             </div>
           )}
 
-          {/* --- STATE 4: RECEIPTS --- */}
           {appState === "receipts" && result && (
             <div className={`w-full max-w-6xl mx-auto px-4 py-8 flex flex-col gap-8 transition-all duration-300 ${
               result.roastScore >= 90 ? 'animate-shake' : ''
@@ -391,6 +386,11 @@ export default function Home() {
                   {result.roast}
                 </div>
 
+                {/* STACKOVERFLOW RATIO STAT BOX */}
+                <div className="bg-zinc-900 border-2 border-zinc-800 p-4 font-mono text-xs text-zinc-400 mb-6 shadow-[4px_4px_0px_#000]">
+                  📊 StackOverflow Dependency Ratio: <span className="text-red-500 font-bold">98.4% (Zero Original Thoughts Detected)</span>
+                </div>
+
                 <div className="w-full bg-[#131315] border-2 border-red-900/50 p-4 shadow-[4px_4px_0px_#27272a] mb-8">
                   <div className="text-[12px] text-zinc-500 font-mono font-bold tracking-widest mb-1 uppercase">Automated Git Blame Analysis:</div>
                   <div className="text-xl font-['Space_Grotesk'] font-black uppercase text-pink-500 tracking-tight">
@@ -398,11 +398,10 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* --- GAG ACTION BUTTONS INCLUDING "WATERBOARD ME" --- */}
+                {/* GAG ACTION BUTTONS INCLUDING NEW STUPID FEATURES */}
                 <div className="flex flex-wrap items-center gap-4 bg-zinc-950 p-6 border-2 border-zinc-800">
                   <span className="w-full text-[12px] text-zinc-500 uppercase tracking-widest font-bold mb-2">DAMAGE CONTROL OPTIONS:</span>
                   
-                  {/* FEATURE 1: WATERBOARD ME BUTTON */}
                   <button 
                     onClick={triggerWaterboard} 
                     disabled={isWaterboarding}
@@ -426,6 +425,19 @@ export default function Home() {
                     Leak to Telegram 🕵️‍♂️
                   </button>
 
+                  {/* NEW STUPID GAG BUTTONS */}
+                  <button onClick={generateSlackExcuse} className="bg-yellow-400 hover:bg-yellow-300 text-black font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#000] transition-all hover:translate-y-1 hover:shadow-[2px_2px_0px_#000]">
+                    Slack Excuse 📢
+                  </button>
+
+                  <button onClick={selfDestructRepo} className="bg-red-500 hover:bg-red-400 text-black font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#000] transition-all hover:translate-y-1 hover:shadow-[2px_2px_0px_#000]">
+                    Self-Destruct 🧨
+                  </button>
+
+                  <button onClick={notifyHR} className="bg-blue-500 hover:bg-blue-400 text-white font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#000] transition-all hover:translate-y-1 hover:shadow-[2px_2px_0px_#000]">
+                    Notify HR 👔
+                  </button>
+
                   <button onClick={() => setAppState('idle')} className="ml-auto bg-zinc-800 text-white font-['Space_Grotesk'] font-black text-[14px] uppercase px-6 py-4 border-2 border-black shadow-[4px_4px_0px_#000] hover:translate-y-1 hover:shadow-[2px_2px_0px_#000]">
                     Roast Next Repo
                   </button>
@@ -436,7 +448,6 @@ export default function Home() {
           )}
         </main>
 
-        {/* --- FOOTER WITH EASTER EGG TRIGGER (CLICK 3 TIMES) --- */}
         <footer className="w-full bg-[#09090b] border-t border-zinc-800 text-[11px] font-mono relative z-20 py-4">
           <div className="max-w-7xl mx-auto px-4 flex flex-wrap items-center justify-between gap-4">
             <span 
