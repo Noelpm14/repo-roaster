@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     ${personaInstruction}
     
     Target Repository: ${repoUrl}
-    (Analyze this repository's implied architecture and general vibe, or rely on provided structural data if piped in).
+    (Analyze this repository's implied architecture and general vibe).
 
     You MUST return a JSON object with this EXACT structure, nothing else:
     {
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     `;
 
     const model = genAI.getGenerativeModel({ 
-      model: "gemini-1.5-flash", // or gemini-1.5-pro
+      model: "gemini-3.6-flash", 
       generationConfig: { 
         responseMimeType: "application/json" // Forces Gemini to return pure JSON
       }
@@ -51,18 +51,20 @@ export async function POST(req: Request) {
 
     return NextResponse.json(data);
   } catch (error: any) {
-    // If we hit a rate limit (429) or quota error, return a fake response to save the demo!
+    // 🛡️ HACKATHON SURVIVAL FALLBACK: 
+    // If quota or rate limits (429) are hit during the live demo, this prevents crashes 
+    // and returns a hilarious backup roast instead!
     const errorMessage = error.message?.toLowerCase() || "";
-    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("exhausted")) {
+    if (errorMessage.includes("429") || errorMessage.includes("quota") || errorMessage.includes("exhausted") || errorMessage.includes("resource_exhausted")) {
       return NextResponse.json({
         repoName: "RateLimit-Exhausted/Skill-Issue",
         roastScore: 99,
-        verdict: "Your code is so bad it literally broke Google's servers. API Quota exhausted.",
-        roast: "Congratulations. I tried to read your codebase and my API key revoked itself in self-defense. We ran out of free-tier tokens just trying to process the sheer volume of technical debt in this repository. I am officially refusing to evaluate this until you pay for a premium API tier.",
-        codeSmells: ["DDoS via bad architecture", "Exhausting free tier limits", "Uncaught Skill Issue"]
+        verdict: "Your code is so toxic it literally triggered Google's API rate limits.",
+        roast: "Congratulations. I tried to read your codebase and my API key panicked in self-defense. We ran out of free-tier tokens just trying to calculate the sheer volume of unmanaged side effects and callback hell in this repository. The system has officially self-terminated rather than process another line.",
+        codeSmells: ["DDoS via bad architecture", "Exhausted free tier rate limits", "Uncaught Skill Issue"]
       });
     }
 
-    // Standard error handling
     return NextResponse.json({ error: error.message || "Failed to execute roast." }, { status: 500 });
   }
+}
